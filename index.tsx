@@ -58,8 +58,22 @@ const formatVoiceName = (voice: SpeechSynthesisVoice): string => {
   return countryCode ? `${name} (${countryCode})` : name;
 };
 
+const Footer = () => (
+  <footer className="footer">
+    <p>This application was created by Srish Rachamalla for the Google Nano Banana AI hackathon.</p>
+    <div className="footer-links">
+      <a href="https://www.linkedin.com/in/srishrachamalla/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+      <a href="https://srish.site/" target="_blank" rel="noopener noreferrer">Website</a>
+      <a href="https://github.com/srishrachamalla7/StroryBoard" target="_blank" rel="noopener noreferrer">Project GitHub</a>
+    </div>
+  </footer>
+);
+
 
 const App = () => {
+  const STORY_BAHUBALI = "The epic tale of Baahubali revolves around the Mahishmati kingdom and two brothers—Amarendra Baahubali and Bhallaladeva. Both are raised as princes and heirs to the throne. Amarendra, noble and compassionate, wins the love of the people, while Bhallaladeva, fueled by greed and jealousy, schemes to seize power. Amarendra falls in love with Devasena, a warrior princess, and marries her. Bhallaladeva and his father conspire to portray him as a traitor, leading to Amarendra’s assassination by his trusted guard, Kattappa, bound by loyalty to the throne. Devasena is imprisoned, and Amarendra’s infant son, Mahendra Baahubali, escapes. Years later, Mahendra learns his true identity and returns to reclaim Mahishmati. With courage and justice, he defeats Bhallaladeva, liberates his mother, and restores honor to his father’s name. The story celebrates sacrifice, justice, and the triumph of good over evil.";
+  const STORY_COFFEE_SHOP = "Maya is a tired college student who discovers a mysterious coffee shop that only appears when she really needs help. Each cup of coffee she orders gives her a different magical ability to solve her problems, but she can only visit the shop once per day.";
+    
   const [storyIdea, setStoryIdea] = useState('');
   const [genre, setGenre] = useState('Sci-Fi');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,7 +82,7 @@ const App = () => {
   const [isGenerated, setIsGenerated] = useState(false);
   const [isReviewingScript, setIsReviewingScript] = useState(false);
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
-  const [isDevMode, setIsDevMode] = useState(true);
+  const [isDevMode, setIsDevMode] = useState(false);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [numPanels, setNumPanels] = useState(10);
   const [characterImageB64, setCharacterImageB64] = useState<string | null>(null);
@@ -103,7 +117,7 @@ const App = () => {
     setCharacterImageB64(null);
     setIsReviewingScript(true);
     setIsLoading(false); // No loading screen, go straight to streaming review
-    setProgressMessage('Writing your comic book script...');
+    setProgressMessage('Writing your storyboard script...');
     await generateAndStreamScripts();
   };
   
@@ -143,7 +157,7 @@ const App = () => {
         const charImgB64 = await generateCharacterImage(storyIdea, genre);
         setCharacterImageB64(charImgB64);
         
-        setProgressMessage(`Generating ${numPanels} comic panels in parallel...`);
+        setProgressMessage(`Generating ${numPanels} storyboard panels in parallel...`);
         
         const imageGenerationPromises = scenes.map(async (scene, index) => {
             try {
@@ -165,7 +179,7 @@ const App = () => {
         
         await Promise.all(imageGenerationPromises);
       }
-      setProgressMessage('Your comic is complete!');
+      setProgressMessage('Your storyboard is complete!');
       setIsGenerated(true);
 
     } catch (error) {
@@ -348,12 +362,19 @@ Return the result as a single JSON object with keys "script", "image_prompt", an
   return (
     <div className="container">
       <header className="header">
-        <h1>Comic Book AI Generator</h1>
+        <h1>AI Storyboard Generator In Comic Style</h1>
         <p>Turn your story ideas into a {numPanels}-panel comic with AI.</p>
       </header>
       
       {!isGenerated && !isLoading && !isReviewingScript && (
         <div className="story-form">
+          <div className="sample-stories">
+            <label>Don't have an idea? Try a sample story:</label>
+            <div className="sample-story-buttons">
+              <button className="btn btn-sample" onClick={() => setStoryIdea(STORY_BAHUBALI)}>The Tale of Baahubali</button>
+              <button className="btn btn-sample" onClick={() => setStoryIdea(STORY_COFFEE_SHOP)}>The Magical Coffee Shop</button>
+            </div>
+          </div>
           <div className="form-group">
             <label htmlFor="story-idea">Your Story Idea</label>
             <textarea id="story-idea" value={storyIdea} onChange={(e) => setStoryIdea(e.target.value)} placeholder="e.g., A lone astronaut discovers a mysterious alien artifact on Mars."></textarea>
@@ -377,7 +398,7 @@ Return the result as a single JSON object with keys "script", "image_prompt", an
             <label className="switch"><input id="dev-mode" type="checkbox" checked={isDevMode} onChange={() => setIsDevMode(!isDevMode)} /><span className="slider round"></span></label>
             <span>(Uses placeholder images to save API quota)</span>
           </div>
-          <button className="btn" onClick={handleGenerate} disabled={!storyIdea.trim()}>Generate Comic</button>
+          <button className="btn" onClick={handleGenerate} disabled={!storyIdea.trim()}>Generate StoryBoard</button>
         </div>
       )}
 
@@ -411,6 +432,7 @@ Return the result as a single JSON object with keys "script", "image_prompt", an
       
       {editingScene && <ScriptEditModal scene={editingScene} onClose={() => setEditingScene(null)} onSave={handleUpdateScene} onRegenerate={handleRegenerateSingleScript} />}
       <SlideshowModal isOpen={isSlideshowOpen} scenes={scenes} onClose={() => setIsSlideshowOpen(false)} selectedVoiceURI={selectedVoiceURI} allVoices={allVoices} />
+      <Footer />
     </div>
   );
 };
