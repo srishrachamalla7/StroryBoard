@@ -561,12 +561,24 @@ select {
 }
 
 
+.generation-options {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.generation-options .form-group {
+  width: 100%;
+  max-width: 800px;
+}
+
 .final-controls {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 1.5rem;
-    margin-top: 2rem;
     flex-wrap: wrap;
 }
 
@@ -591,6 +603,26 @@ select {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+.slideshow-completed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-align: center;
+    gap: 1.5rem;
+}
+
+.slideshow-completed h2 {
+    font-family: 'Bangers', cursive;
+    font-size: 3rem;
+    letter-spacing: 2px;
+}
+
+.slideshow-completed p {
+    font-size: 1.2rem;
 }
 
 .slideshow-image {
@@ -622,12 +654,17 @@ select {
     font-size: 3rem;
     cursor: pointer;
     padding: 0.5rem 1.5rem;
-    transition: background 0.3s;
+    transition: background 0.3s, opacity 0.3s;
     z-index: 1001;
 }
 
 .slideshow-nav:hover {
     background: var(--primary-color);
+}
+
+.slideshow-nav:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
 
 .slideshow-nav.prev {

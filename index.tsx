@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 
@@ -372,6 +372,21 @@ Return the result as a single JSON object with keys "script", "image_prompt", an
               <span>10</span>
             </div>
           </div>
+          <div className="form-group dev-mode-toggle">
+            <label htmlFor="dev-mode">Development Mode</label>
+            <label className="switch"><input id="dev-mode" type="checkbox" checked={isDevMode} onChange={() => setIsDevMode(!isDevMode)} /><span className="slider round"></span></label>
+            <span>(Uses placeholder images to save API quota)</span>
+          </div>
+          <button className="btn" onClick={handleGenerate} disabled={!storyIdea.trim()}>Generate Comic</button>
+        </div>
+      )}
+
+      {isLoading && !isReviewingScript && <ComicBookDisplaySkeleton numPanels={numPanels} />}
+      {isReviewingScript && <ScriptReview scenes={scenes} numPanels={numPanels} onApprove={handleStartImageGeneration} onRegenerate={handleRegenerateScripts} onEditScene={(scene) => setEditingScene(scene)} isRegenerating={isRegeneratingScript} />}
+      {isGenerated && scenes.length > 0 && <ComicBookDisplay scenes={scenes} onRegenerateImage={handleRegenerateImage} isRegeneratingImage={isRegeneratingImage}/>}
+      
+      {isGenerated && !isLoading && (
+        <div className="generation-options">
           <div className="form-group">
             <label>Narration Voice</label>
             <div className="voice-selection-list">
@@ -386,19 +401,14 @@ Return the result as a single JSON object with keys "script", "image_prompt", an
               ))}
             </div>
           </div>
-          <div className="form-group dev-mode-toggle">
-            <label htmlFor="dev-mode">Development Mode</label>
-            <label className="switch"><input id="dev-mode" type="checkbox" checked={isDevMode} onChange={() => setIsDevMode(!isDevMode)} /><span className="slider round"></span></label>
-            <span>(Uses placeholder images to save API quota)</span>
+          <div className="final-controls">
+              <button className="btn" onClick={() => setIsSlideshowOpen(true)}>Play Slideshow</button>
+              <button className="btn btn-secondary" onClick={handleDownloadAll}>Download All Panels</button>
+              <button className="btn btn-secondary" onClick={startOver}>Create Another Comic</button>
           </div>
-          <button className="btn" onClick={handleGenerate} disabled={!storyIdea.trim()}>Generate Comic</button>
         </div>
       )}
-
-      {isLoading && !isReviewingScript && <ComicBookDisplaySkeleton numPanels={numPanels} />}
-      {isReviewingScript && <ScriptReview scenes={scenes} numPanels={numPanels} onApprove={handleStartImageGeneration} onRegenerate={handleRegenerateScripts} onEditScene={(scene) => setEditingScene(scene)} isRegenerating={isRegeneratingScript} />}
-      {isGenerated && scenes.length > 0 && <ComicBookDisplay scenes={scenes} onRegenerateImage={handleRegenerateImage} isRegeneratingImage={isRegeneratingImage}/>}
-      {isGenerated && !isLoading && <div className="final-controls"><button className="btn" onClick={() => setIsSlideshowOpen(true)}>Play Slideshow</button><button className="btn btn-secondary" onClick={handleDownloadAll}>Download All Panels</button><button className="btn btn-secondary" onClick={startOver}>Create Another Comic</button></div>}
+      
       {editingScene && <ScriptEditModal scene={editingScene} onClose={() => setEditingScene(null)} onSave={handleUpdateScene} onRegenerate={handleRegenerateSingleScript} />}
       <SlideshowModal isOpen={isSlideshowOpen} scenes={scenes} onClose={() => setIsSlideshowOpen(false)} selectedVoiceURI={selectedVoiceURI} allVoices={allVoices} />
     </div>
@@ -466,16 +476,44 @@ const ScriptEditModal = ({ scene, onClose, onSave, onRegenerate }) => {
 
 const SlideshowModal = ({ isOpen, scenes, onClose, selectedVoiceURI, allVoices }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const goToPrevious = () => setCurrentIndex(prev => (prev === 0 ? scenes.length - 1 : prev - 1));
-    const goToNext = () => setCurrentIndex(prev => (prev === scenes.length - 1 ? 0 : prev + 1));
+    const [isCompleted, setIsCompleted] = useState(false);
+
+    const goToPrevious = useCallback(() => {
+        setCurrentIndex(prev => (prev > 0 ? prev - 1 : 0));
+    }, []);
+
+    const goToNext = useCallback(() => {
+        setCurrentIndex(prev => {
+            if (prev < scenes.length - 1) {
+                return prev + 1;
+            } else {
+                setIsCompleted(true);
+                return prev; // Stay on the last index
+            }
+        });
+    }, [scenes.length]);
+
+    const handleRestart = useCallback(() => {
+        setIsCompleted(false);
+        setCurrentIndex(0);
+    }, []);
 
     useEffect(() => {
-        if (isOpen && scenes.length > 0) {
+        if (isOpen) {
             window.speechSynthesis.cancel();
-            const scene = scenes[currentIndex];
-            if (scene && scene.panel_text) {
-                const utterance = new SpeechSynthesisUtterance(scene.panel_text);
-                const voice = allVoices.find(v => v.voiceURI === selectedVoiceURI);
+            const voice = allVoices.find(v => v.voiceURI === selectedVoiceURI);
+            let utterance: SpeechSynthesisUtterance | undefined;
+
+            if (isCompleted) {
+                utterance = new SpeechSynthesisUtterance("The slideshow is completed. Do you want to restart?");
+            } else if (scenes.length > 0) {
+                const scene = scenes[currentIndex];
+                if (scene && scene.panel_text) {
+                    utterance = new SpeechSynthesisUtterance(scene.panel_text);
+                }
+            }
+
+            if (utterance) {
                 if (voice) {
                     utterance.voice = voice;
                 }
@@ -484,32 +522,56 @@ const SlideshowModal = ({ isOpen, scenes, onClose, selectedVoiceURI, allVoices }
         } else {
             window.speechSynthesis.cancel();
         }
-    }, [isOpen, currentIndex, scenes, selectedVoiceURI, allVoices]);
+    }, [isOpen, currentIndex, scenes, selectedVoiceURI, allVoices, isCompleted]);
     
     useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'ArrowLeft') goToPrevious(); else if (e.key === 'ArrowRight') goToNext(); else if (e.key === 'Escape') onClose(); };
-      if (isOpen) { setCurrentIndex(0); document.addEventListener('keydown', handleKeyDown); }
-      return () => { document.removeEventListener('keydown', handleKeyDown); window.speechSynthesis.cancel(); };
-    }, [isOpen, scenes.length]);
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            onClose();
+            return;
+        }
+        if (isCompleted) return;
+
+        if (e.key === 'ArrowLeft') goToPrevious();
+        else if (e.key === 'ArrowRight') goToNext();
+      };
+      if (isOpen) {
+        setCurrentIndex(0);
+        setIsCompleted(false);
+        document.addEventListener('keydown', handleKeyDown);
+      }
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        window.speechSynthesis.cancel();
+      };
+    }, [isOpen, isCompleted, onClose, goToPrevious, goToNext]);
 
     if (!isOpen) return null;
+
     const currentScene = scenes[currentIndex];
-    if (!currentScene) return null;
-
-    const hasFailed = currentScene.imageUrl === 'FAILED';
-
+    
     return (
         <div className="slideshow-overlay" onClick={onClose}>
             <div className="slideshow-content" onClick={e => e.stopPropagation()}>
                 <button className="slideshow-close" onClick={onClose} aria-label="Close slideshow">&times;</button>
-                {hasFailed ? (
-                    <div className="panel-failure-placeholder main">Image generation failed for this panel.</div>
+                {isCompleted ? (
+                    <div className="slideshow-completed">
+                        <h2>Slideshow Completed</h2>
+                        <p>Do you want to restart?</p>
+                        <button className="btn" onClick={handleRestart}>Restart</button>
+                    </div>
                 ) : (
-                    currentScene.imageUrl ? <img src={currentScene.imageUrl} alt={`Panel ${currentScene.scene}`} className="slideshow-image"/> : <div className="panel-failure-placeholder main">Loading Image...</div>
+                    currentScene && <>
+                        {currentScene.imageUrl === 'FAILED' ? (
+                            <div className="panel-failure-placeholder main">Image generation failed for this panel.</div>
+                        ) : (
+                            currentScene.imageUrl ? <img src={currentScene.imageUrl} alt={`Panel ${currentScene.scene}`} className="slideshow-image"/> : <div className="panel-failure-placeholder main">Loading Image...</div>
+                        )}
+                        <button className="slideshow-nav prev" onClick={goToPrevious} aria-label="Previous panel" disabled={currentIndex === 0}>&#10094;</button>
+                        <button className="slideshow-nav next" onClick={goToNext} aria-label="Next panel">&#10095;</button>
+                        <div className="slideshow-caption"><p><strong>Panel {currentScene.scene}:</strong> {currentScene.panel_text || currentScene.script}</p></div>
+                    </>
                 )}
-                <button className="slideshow-nav prev" onClick={goToPrevious} aria-label="Previous panel">&#10094;</button>
-                <button className="slideshow-nav next" onClick={goToNext} aria-label="Next panel">&#10095;</button>
-                <div className="slideshow-caption"><p><strong>Panel {currentScene.scene}:</strong> {currentScene.panel_text || currentScene.script}</p></div>
             </div>
         </div>
     );
